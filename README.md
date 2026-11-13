@@ -1,44 +1,40 @@
-# Vega-S Local Thermostat (Home Assistant / HACS)
+# Vega-S Local Thermostat — HACS v1.1.0
 
-A local Home Assistant `climate` integration for the **Vega-S 400** thermostat running ESP8266 firmware **v6.2 HA Local**.
+Local Home Assistant `climate` integration for an ESP8266 Vega-S 400 thermostat running **firmware v6.2 HA Local**. No MQTT or cloud needed.
 
-- No MQTT, no cloud.
-- Existing ESP8266 web interface continues to work.
-- Exposes a standard **climate** entity with OFF / HEAT, target temperature, measured temperature and relay state.
-- Communicates with ESP8266 using `http://<controller-ip>/api/ha/state` and `POST` commands.
+## Update v1.1.0 — thermostat temperature display fix
 
-## Requirements
+- Fixed temperature unit declaration to use `native_temperature_unit` in HA 2026.11+, matching `native_current_temperature` and `native_target_temperature`.
+- Included fallback property names for older Home Assistant versions.
+- Explicitly handle turn-on and turn-off actions.
+- Expose sensor health and heating relay state in entity attributes.
+- No ESP8266 firmware changes are needed **if v6.2 is already installed**.
 
-1. Install and run firmware **Vega_S_400_Local_v6_2.ino** on the ESP8266 (from the separate firmware ZIP).
-2. Confirm `http://<controller-ip>/health` returns `Heater Performance v6.2 HA Local alive`.
-3. Home Assistant and ESP8266 must be reachable on the same network (or routed local networks).
-4. HACS installed in Home Assistant.
+## Updating through HACS
 
-## Install via HACS (custom repository)
+1. Upload all files from this repository ZIP to the **root** of your GitHub repository (preserve the `custom_components/vega_s_local/` directory).
+2. In HACS find `Vega-S Local Thermostat` -> 3 dots -> **Update information**, then **Redownload** (or use the update notification).
+3. Restart **Home Assistant**, not just the ESP8266.
+4. Open **Developer Tools -> States** and find `climate.*vega*`. It should show `current_temperature`, `temperature` (setpoint), `temperature_unit`, and `hvac_action`.
+5. Use the standard **Thermostat** card. If the card was created before the fix and still looks stale, refresh the Home Assistant UI in your browser.
 
-1. Create a GitHub repository called `vega-s-local` and upload this repository's **contents** to its root (`custom_components/vega_s_local`, `hacs.json`, `README.md`). Do **not** upload the ZIP alone.
-2. In HACS, open the three-dot menu → **Custom repositories**.
-3. Enter `https://github.com/<YOUR_GITHUB_USERNAME>/vega-s-local` and select category **Integration**.
-4. Add the repository, find **Vega-S Local Thermostat**, and select **Download**.
-5. Restart Home Assistant.
-6. Go to **Settings → Devices & services → Add integration** → **Vega-S Local Thermostat**.
-7. Enter the controller's LAN address (for example `192.168.1.97`, without `http://`).
-8. Add the `climate` entity to a standard **Thermostat** card.
+## Required ESP firmware
 
-## API
+The ESP8266 must respond to the following address:
 
-- `GET /api/ha/state`
-- `POST /api/ha/mode` with form field `mode=heat|off`
-- `POST /api/ha/target` with form field `target=22.0`
+`http://ESP_IP/api/ha/state`
 
-Commands are evaluated by the ESP8266 thermostat's own safety and sensor checks. Disabling heating is always allowed.
+Expected fields include `enabled`, `relay`, `sensor_ok`, `temperature`, `target`, and `humidity`. If `sensor_ok` is false, current temperature will be shown as unavailable until the sensor recovers. Do not bypass safety restrictions.
+
+Temperature changes use `POST /api/ha/target`; modes use `POST /api/ha/mode`. The controller remains in charge of relay control and safety.
+
+## Diagnostics
+
+- `http://ESP_IP/health`: expect `Heater Performance v6.2 HA Local alive`.
+- `http://ESP_IP/api/ha/state`: confirm `sensor_ok:true`, a plausible `temperature`, and `target`.
+- Home Assistant: Developer Tools -> States -> your `climate` entity, check `current_temperature`, `temperature`, `temperature_unit`, `supported_features`.
+- If the Home Assistant server is Docker, ensure it can reach `ESP_IP:80` from inside the container.
 
 ## Security
 
-The HTTP API is unauthenticated. Keep the device and Home Assistant on a trusted LAN; do not expose the ESP8266 to the Internet.
-
-## Troubleshooting
-
-If the integration reports `cannot_connect`, confirm the ESP8266 runs **v6.2**, is reachable from the Home Assistant Docker container, and `/api/ha/state` returns valid JSON. A successful web page alone is not enough: the API endpoints must exist.
-
-This is a community integration, not an official Home Assistant integration. Physical device and Home Assistant tests are required.
+The local HTTP interface has no authentication. Keep the ESP8266 and Home Assistant on a trusted LAN; do not expose port 80 to the internet. The device's independent thermal protection and appropriate mains wiring are required for safe heater operation.

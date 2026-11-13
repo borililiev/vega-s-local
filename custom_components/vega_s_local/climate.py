@@ -38,7 +38,8 @@ class VegaClimate(CoordinatorEntity[VegaCoordinator], ClimateEntity):
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TURN_OFF
     )
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    # HA 2026.11+ requires native_temperature_unit for native_* temperature fields.
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 0.5
     _attr_min_temp = 12.0
     _attr_max_temp = 28.0
@@ -73,11 +74,34 @@ class VegaClimate(CoordinatorEntity[VegaCoordinator], ClimateEntity):
         data = self.coordinator.data
         if data.get("sensor_ok") is not True:
             return None
-        return float(data["temperature"])
+        try:
+            return float(data["temperature"])
+        except (KeyError, TypeError, ValueError):
+            return None
 
     @property
-    def native_target_temperature(self) -> float:
-        return float(self.coordinator.data["target"])
+    def native_target_temperature(self) -> float | None:
+        try:
+            return float(self.coordinator.data["target"])
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    # For Home Assistant versions before 2026.11, the temperature fields used
+    # legacy names. Define those ONLY on older versions to avoid deprecation
+    # warnings on HA 2026.11+.
+    if not hasattr(ClimateEntity, "native_temperature_unit"):
+
+        @property
+        def temperature_unit(self) -> str:
+            return UnitOfTemperature.CELSIUS
+
+        @property
+        def current_temperature(self) -> float | None:
+            return self.native_current_temperature
+
+        @property
+        def target_temperature(self) -> float | None:
+            return self.native_target_temperature
 
     @property
     def current_humidity(self) -> float | None:
@@ -91,6 +115,7 @@ class VegaClimate(CoordinatorEntity[VegaCoordinator], ClimateEntity):
             "relay_on": bool(data.get("relay")),
             "safety_lock": bool(data.get("locked")),
             "manual_override": bool(data.get("manual")),
+            "sensor_ok": bool(data.get("sensor_ok")),
             "minimum_on_minutes": data.get("min_on_minutes"),
             "minimum_off_minutes": data.get("min_off_minutes"),
         }
@@ -103,6 +128,14 @@ class VegaClimate(CoordinatorEntity[VegaCoordinator], ClimateEntity):
         except VegaApiError as err:
             raise HomeAssistantError(f"Thermostat rejected mode: {err}") from err
         await self.coordinator.async_request_refresh()
+
+    async def async_turn_on(self) -> None:
+        """Enable automatic heat using the ESP's own thermostat/safety rules."""
+        await self.async_set_hvac_mode(HVACMode.HEAT)
+
+    async def async_turn_off(self) -> None:
+        """Immediately disable heating on the device."""
+        await self.async_set_hvac_mode(HVACMode.OFF)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         if ATTR_TEMPERATURE not in kwargs:
