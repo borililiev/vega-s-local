@@ -1,0 +1,12 @@
+{
+  "domain": "vega_s_local",
+  "name": "Vega-S Local Thermostat",
+  "version": "1.0.0",
+  "config_flow": true,
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "codeowners": [],
+  "documentation": "https://github.com/YOUR_GITHUB_USERNAME/vega-s-local#readme",
+  "issue_tracker": "https://github.com/YOUR_GITHUB_USERNAME/vega-s-local/issues"
+}

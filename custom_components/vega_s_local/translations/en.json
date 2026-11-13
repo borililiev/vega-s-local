@@ -1,0 +1,21 @@
+{
+  "title": "Vega-S Local Thermostat",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect your Vega-S thermostat",
+        "description": "Use the IP address or hostname of the ESP8266 on your LAN. Firmware v6.2 required.",
+        "data": {
+          "host": "Device IP address or hostname"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach the thermostat. Check firmware v6.2 and LAN IP.",
+      "invalid_host": "Enter an IP address or hostname without http://"
+    },
+    "abort": {
+      "already_configured": "This thermostat is already configured"
+    }
+  }
+}
